@@ -8,3 +8,7 @@ jobs:
         steps:
             - name: whoami
               run: whoami
+            - name: python version
+              uses: docker://python:3.8
+              with:
+                entrypoint: python --version
