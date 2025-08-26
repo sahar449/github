@@ -8,7 +8,7 @@ jobs:
         steps:
             - name: whoami
               run: whoami
-            - name: jenkins
+            - name: jenkinss
               uses: docker://jenkins/jenkins:2.516.2-lts-jdk21
               with:
                 entrypoint: whoami
