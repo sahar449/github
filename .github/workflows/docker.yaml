@@ -4,7 +4,7 @@ jobs:
     docker-job:
         runs-on: ubuntu-latest
         container:
-            image: nginx
+            image: python:3.9
         steps:
             - name: whoami
               run: whoami
