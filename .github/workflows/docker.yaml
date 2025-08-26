@@ -8,8 +8,18 @@ jobs:
         steps:
             - name: whoami
               run: whoami
+
+            - name: create a file
+              run: echo "hello world" > myfile.txt
+
             - name: Python sleep demo
               uses: docker://python:3.9
               with:
                 entrypoint: sh
                 args: -c "python -V"
+            
+            - name: print contents of the file
+              uses: docker://python:3.9  
+              with:
+                entrypoint: sh
+                args: -c "cat myfile.txt"
