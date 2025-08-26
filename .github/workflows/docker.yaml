@@ -1,0 +1,10 @@
+name: container
+on: [workflow_dispatch]
+jobs:
+    docker-job:
+        runs-on: ubuntu-latest
+        container:
+            image: nginx
+        steps:
+            - name: whoami
+              run: whoami
