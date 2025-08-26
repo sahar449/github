@@ -8,7 +8,7 @@ jobs:
         steps:
             - name: whoami
               run: whoami
-            - name: jenkinss
-              uses: docker://jenkins/jenkins:2.516.2-lts-jdk21
+            - name: python
+              uses: docker://python:3.9
               with:
-                entrypoint: whoami
+                entrypoint: python -V
