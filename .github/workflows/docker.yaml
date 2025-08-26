@@ -9,6 +9,6 @@ jobs:
             - name: whoami
               run: whoami
             - name: python version
-              uses: docker://python:3.8
+              uses: docker://python:3.9
               with:
-                entrypoint: python3 -V
+                args: -V
