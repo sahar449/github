@@ -12,4 +12,4 @@ jobs:
               uses: docker://python:3.9
               with:
                 entrypoint: sh
-                args: -c "python -V && sleep infinity"
+                args: -c "python -V"
