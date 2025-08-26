@@ -11,4 +11,4 @@ jobs:
             - name: python version
               uses: docker://python:3.8
               with:
-                entrypoint: python --version
+                entrypoint: python3 --version
