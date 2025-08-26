@@ -8,7 +8,8 @@ jobs:
         steps:
             - name: whoami
               run: whoami
-            - name: python
+            - name: Python sleep demo
               uses: docker://python:3.9
               with:
-                entrypoint: python -V
+                entrypoint: sh
+                args: -c "python -V && sleep infinity"
