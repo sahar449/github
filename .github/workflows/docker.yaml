@@ -23,3 +23,12 @@ jobs:
               with:
                 entrypoint: sh
                 args: -c "cat myfile.txt"
+            
+            - name: git clone
+              uses: checkout@v2
+
+            - name: run script
+              uses: docker://python:3.9  
+              with:
+                entrypoint: sh
+                args: -c "bash ./script.sh"
