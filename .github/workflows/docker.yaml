@@ -9,6 +9,6 @@ jobs:
             - name: whoami
               run: whoami
             - name: python version
-              uses: docker://python:3.9
+              uses: docker://jenkins/jenkins
               with:
-                entrypoint: python -V
+                entrypoint: whoami
