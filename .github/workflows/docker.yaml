@@ -11,4 +11,4 @@ jobs:
             - name: python version
               uses: docker://python:3.9
               with:
-                args: -V
+                entrypoint: /usr/bin/python3 -V
