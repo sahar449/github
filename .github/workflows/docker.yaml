@@ -1,4 +1,4 @@
-name: Build & Test Flask API
+name: Build, Push & Test Flask API
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  build-and-test:
     runs-on: ubuntu-latest
 
     services:
@@ -27,7 +27,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # ----- Docker Hub -----
+      # --- Extract Metadata ---
+      - name: Extract Metadata
+        id: metadata
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/flask
+            ghcr.io/${{ github.repository_owner }}/flask
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      # --- Docker Hub login & push ---
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
@@ -38,10 +50,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/flask:latest
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
 
-      # ----- GitHub Container Registry (GHCR) -----
+      # --- GHCR login & push ---
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -53,10 +67,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/flask:latest
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
 
-      # ----- Run Flask & Test -----
+      # --- Run Flask container ---
       - name: Run Flask App
         run: |
           docker run -d \
@@ -71,6 +87,7 @@ jobs:
           sleep 15
           echo "Flask app started!"
 
+      # --- Test Flask API ---
       - name: Test App
         run: |
           echo ">>> Health check"
@@ -86,6 +103,7 @@ jobs:
           echo ">>> Verify user added"
           curl http://localhost:5000/ | grep NewUser
 
+      # --- Cleanup ---
       - name: Cleanup
         if: always()
         run: docker stop flask-app || true
