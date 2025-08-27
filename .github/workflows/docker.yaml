@@ -1,34 +1,53 @@
-name: container
-on: [workflow_dispatch]
+name: Test Flask API
+
+on: 
+  push:
+  workflow_dispatch:
+
 jobs:
-    docker-job:
-        runs-on: ubuntu-latest
-        container:
-            image: nginx
-        steps:
-            - name: whoami
-              run: whoami
+  test-api:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: flaskdb
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
-            - name: create a file
-              run: echo "hello world" > myfile.txt
+    steps:
+      - name: Run Flask App
+        run: |
+          docker run -d \
+            --name flask-app \
+            --network host \
+            -e DB_HOST=127.0.0.1 \
+            -e DB_USER=root \
+            -e DB_PASSWORD=rootpass \
+            -e DB_NAME=flaskdb \
+            sahar449/flask
+          
+          sleep 10
+          echo "Flask app started!"
 
-            - name: Python sleep demo
-              uses: docker://python:3.9
-              with:
-                entrypoint: sh
-                args: -c "python -V"
-            
-            - name: print contents of the file
-              uses: docker://python:3.9  
-              with:
-                entrypoint: sh
-                args: -c "cat myfile.txt"
-            
-            - name: git clone
-              uses: actions/checkout@v3
+      - name: Test App
+        run: |
+          # בדיקת health
+          curl http://localhost:5000/health
+          
+          # קבלת יוזרים
+          curl http://localhost:5000/
+          
+          # הוספת יוזר חדש
+          mysql -h127.0.0.1 -P3306 -uroot -prootpass flaskdb \
+            -e "INSERT IGNORE INTO users (name) VALUES ('NewUser');"
+          
+          # בדיקה שהיוזר נוסף
+          curl http://localhost:5000/ | grep NewUser
 
-            - name: run script
-              uses: docker://python:3.9  
-              with:
-                entrypoint: sh
-                args: -c "bash ./script.sh"
+      - name: Cleanup
+        if: always()
+        run: docker stop flask-app
