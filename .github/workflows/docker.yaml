@@ -3,6 +3,8 @@ name: Build, Push & Test Flask API
 on:
   push:
     branches: ["main"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -27,18 +29,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # --- Extract Metadata for Docker images ---
+      # --- Extract Docker Metadata ---
       - name: Extract Metadata
         id: metadata
         uses: docker/metadata-action@v4
         with:
-          images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/flask
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/flask
           tags: |
-            type=ref,event=branch
-            type=sha
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag        # אם זה release, יתן את שם ה-tag
+            type=ref,event=branch     # fallback: branch name
+            type=sha                  # fallback נוסף: commit SHA
 
       # --- Docker Hub login & push ---
       - name: Log in to DockerHub
