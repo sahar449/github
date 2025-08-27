@@ -1,38 +1,35 @@
-name: Build, Push & Test Flask API
+name: Build & Publish Flask Docker Image
 
 on:
-  push:
-    branches: ["main"]
   release:
     types: [published]
-  workflow_dispatch:
 
 permissions:
   packages: write
   contents: read
 
 jobs:
-  build-and-test:
+  push-to-dockerhub-and-ghcr:
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: rootpass
-          MYSQL_DATABASE: flaskdb
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost -uroot -prootpass"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
 
     steps:
       # --- Checkout repository ---
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+
+      # --- Docker Hub login ---
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      # --- GHCR login ---
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
 
       # --- Extract Docker Metadata ---
       - name: Extract Metadata
@@ -41,21 +38,15 @@ jobs:
         with:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/flask
-            ghcr.io/sahar449
+            ghcr.io/${{ github.repository_owner }}/flask
           tags: |
-            type=ref,event=tag    # uses Git release tag
-            type=sha              # fallback: commit SHA
+            type=ref,event=tag      # GitHub release tag
+            type=sha                # fallback: commit SHA
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      # --- Docker Hub login & push ---
-      - name: Log in to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Build & Push to DockerHub
+      # --- Build & Push Docker Images ---
+      - name: Build & Publish Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -63,56 +54,3 @@ jobs:
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
-
-      # --- GHCR login & push ---
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Build & Push to GHCR
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
-
-      # --- Run Flask container ---
-      - name: Run Flask App
-        run: |
-          docker run -d \
-            --name flask-app \
-            --network host \
-            -e DB_HOST=127.0.0.1 \
-            -e DB_USER=root \
-            -e MYSQL_ROOT_PASSWORD=rootpass \
-            -e DB_NAME=flaskdb \
-            ${{ secrets.DOCKERHUB_USERNAME }}/flask:latest
-          
-          sleep 15
-          echo "Flask app started!"
-
-      # --- Test Flask API ---
-      - name: Test App
-        run: |
-          echo ">>> Health check"
-          curl http://localhost:5000/health
-
-          echo ">>> Get users"
-          curl http://localhost:5000/
-
-          echo ">>> Insert new user"
-          mysql -h127.0.0.1 -P3306 -uroot -prootpass flaskdb \
-            -e "INSERT IGNORE INTO users (name) VALUES ('NewUser');"
-
-          echo ">>> Verify user added"
-          curl http://localhost:5000/ | grep NewUser
-
-      # --- Cleanup ---
-      - name: Cleanup
-        if: always()
-        run: docker stop flask-app || true
