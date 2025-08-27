@@ -1,11 +1,12 @@
 name: Build & Test Flask API
 
-on: 
+on:
   push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build-test:
+  build-and-push:
     runs-on: ubuntu-latest
 
     services:
@@ -16,25 +17,47 @@ jobs:
           MYSQL_DATABASE: flaskdb
         ports:
           - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
+      # ----- Docker Hub -----
       - name: Log in to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Flask Docker image
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/flask:latest .
+      - name: Build & Push to DockerHub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/flask:latest
 
-      - name: Push image to DockerHub
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/flask:latest
+      # ----- GitHub Container Registry (GHCR) -----
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_PAT }}
 
-      - name: Run Flask container
+      - name: Build & Push to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/flask:latest
+
+      # ----- Run Flask & Test -----
+      - name: Run Flask App
         run: |
           docker run -d \
             --name flask-app \
@@ -44,25 +67,25 @@ jobs:
             -e MYSQL_ROOT_PASSWORD=rootpass \
             -e DB_NAME=flaskdb \
             ${{ secrets.DOCKERHUB_USERNAME }}/flask:latest
-
-          sleep 10
+          
+          sleep 15
           echo "Flask app started!"
 
       - name: Test App
         run: |
-          # בדיקת health
+          echo ">>> Health check"
           curl http://localhost:5000/health
 
-          # קבלת יוזרים
+          echo ">>> Get users"
           curl http://localhost:5000/
 
-          # הוספת יוזר חדש
+          echo ">>> Insert new user"
           mysql -h127.0.0.1 -P3306 -uroot -prootpass flaskdb \
             -e "INSERT IGNORE INTO users (name) VALUES ('NewUser');"
 
-          # בדיקה שהיוזר נוסף
+          echo ">>> Verify user added"
           curl http://localhost:5000/ | grep NewUser
 
       - name: Cleanup
         if: always()
-        run: docker stop flask-app
+        run: docker stop flask-app || true
