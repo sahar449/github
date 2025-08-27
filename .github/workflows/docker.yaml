@@ -36,11 +36,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/flask
           tags: |
-            type=ref,event=tag        # אם זה release, יתן את שם ה-tag
-            type=ref,event=branch     # fallback: branch name
-            type=sha                  # fallback נוסף: commit SHA
-
-      # --- Docker Hub login & push ---
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
