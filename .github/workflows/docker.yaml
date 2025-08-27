@@ -41,7 +41,7 @@ jobs:
         with:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/flask
-            ghcr.io/${{ github.repository }}
+            ghcr.io/sahar449
           tags: |
             type=ref,event=tag    # uses Git release tag
             type=sha              # fallback: commit SHA
