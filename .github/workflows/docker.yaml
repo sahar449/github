@@ -1,53 +1,31 @@
-name: Test Flask API
+name: Build and Push to Docker Hub
 
-on: 
+on:
   push:
-  workflow_dispatch:
+    branches: [ main, master ]
 
 jobs:
-  test-api:
+  docker:
     runs-on: ubuntu-latest
-    
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: rootpass
-          MYSQL_DATABASE: flaskdb
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
     steps:
-      - name: Run Flask App
-        run: |
-          docker run -d \
-            --name flask-app \
-            --network host \
-            -e DB_HOST=127.0.0.1 \
-            -e DB_USER=root \
-            -e DB_PASSWORD=rootpass \
-            -e DB_NAME=flaskdb \
-            sahar449/flask
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
           
-          sleep 10
-          echo "Flask app started!"
-
-      - name: Test App
-        run: |
-          # בדיקת health
-          curl http://localhost:5000/health
-          
-          # קבלת יוזרים
-          curl http://localhost:5000/
-          
-          # הוספת יוזר חדש
-          mysql -h127.0.0.1 -P3306 -uroot -prootpass flaskdb \
-            -e "INSERT IGNORE INTO users (name) VALUES ('NewUser');"
-          
-          # בדיקה שהיוזר נוסף
-          curl http://localhost:5000/ | grep NewUser
-
-      - name: Cleanup
-        if: always()
-        run: docker stop flask-app
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: sahar449/flask:latest
