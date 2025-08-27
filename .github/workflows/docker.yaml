@@ -26,6 +26,7 @@ jobs:
           --health-retries=5
 
     steps:
+      # --- Checkout repository ---
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -36,8 +37,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/flask
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag    # ← משתמש ב‑Git tag של ה-release
+            type=sha              # fallback: commit SHA
 
       # --- Docker Hub login & push ---
       - name: Log in to DockerHub
@@ -52,7 +53,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.metadata.outputs.tags || format('{0}/flask:latest', secrets.DOCKERHUB_USERNAME) }}
+          tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
 
       # --- Run Flask container ---
