@@ -7,6 +7,10 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  packages: write
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -35,10 +39,14 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v4
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/flask
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/flask
+            ghcr.io/${{ github.repository_owner }}/flask
           tags: |
-            type=ref,event=tag    # ← משתמש ב‑Git tag של ה-release
+            type=ref,event=tag    # uses Git release tag
             type=sha              # fallback: commit SHA
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       # --- Docker Hub login & push ---
       - name: Log in to DockerHub
@@ -48,6 +56,23 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Build & Push to DockerHub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+
+      # --- GHCR login & push ---
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build & Push to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
