@@ -1,17 +1,27 @@
-name: Build & Publish Flask Docker Image
+name: Build, Push & Test Flask Docker Image
 
 on:
   release:
     types: [published]
-  workflow_dispatch:   # מאפשר הפעלה ידנית מה‑GitHub Actions
-
-permissions:
-  packages: write
-  contents: read
+  workflow_dispatch:   # מאפשר הפעלה ידנית
 
 jobs:
-  push-to-dockerhub-and-ghcr:
+  push-and-test-dockerhub:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: flaskdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       # --- Checkout repository ---
@@ -24,29 +34,19 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      # --- GHCR login ---
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
       # --- Extract Docker Metadata ---
       - name: Extract Metadata
         id: metadata
         uses: docker/metadata-action@v4
         with:
-          images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/flask
-            ghcr.io/${{ github.repository}}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/flask
           tags: |
             type=ref,event=tag      # GitHub release tag
             type=sha                # fallback: commit SHA
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      # --- Build & Push Docker Images ---
+      # --- Build & Push Docker Image ---
       - name: Build & Publish Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -55,3 +55,39 @@ jobs:
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+
+      # --- Run Flask container ---
+      - name: Run Flask App
+        run: |
+          docker run -d \
+            --name flask-app \
+            --network host \
+            -e DB_HOST=127.0.0.1 \
+            -e DB_USER=root \
+            -e MYSQL_ROOT_PASSWORD=rootpass \
+            -e DB_NAME=flaskdb \
+            ${{ secrets.DOCKERHUB_USERNAME }}/flask:latest
+          
+          sleep 15
+          echo "Flask app started!"
+
+      # --- Test Flask API ---
+      - name: Test App
+        run: |
+          echo ">>> Health check"
+          curl http://localhost:5000/health
+
+          echo ">>> Get users"
+          curl http://localhost:5000/
+
+          echo ">>> Insert new user"
+          mysql -h127.0.0.1 -P3306 -uroot -prootpass flaskdb \
+            -e "INSERT IGNORE INTO users (name) VALUES ('NewUser');"
+
+          echo ">>> Verify user added"
+          curl http://localhost:5000/ | grep NewUser
+
+      # --- Cleanup ---
+      - name: Cleanup
+        if: always()
+        run: docker stop flask-app || true
