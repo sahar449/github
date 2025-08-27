@@ -39,7 +39,7 @@ jobs:
         with:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/flask
-            ghcr.io/${{ github.repository_owner }}/flask
+            ghcr.io/${{ github.repository}}
           tags: |
             type=ref,event=tag      # GitHub release tag
             type=sha                # fallback: commit SHA
