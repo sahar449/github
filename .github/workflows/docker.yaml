@@ -14,6 +14,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: flaskdb
         ports:
           - 3306:3306
         options: >-
@@ -33,7 +34,6 @@ jobs:
         with:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/flask
-            ghcr.io/${{ github.repository_owner }}/flask
           tags: |
             type=ref,event=branch
             type=sha
@@ -48,23 +48,6 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Build & Push to DockerHub
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
-
-      # --- GHCR login & push ---
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Build & Push to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
