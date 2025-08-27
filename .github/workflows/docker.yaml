@@ -3,6 +3,7 @@ name: Build & Publish Flask Docker Image
 on:
   release:
     types: [published]
+  workflow_dispatch:   # מאפשר הפעלה ידנית מה‑GitHub Actions
 
 permissions:
   packages: write
