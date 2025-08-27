@@ -13,6 +13,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: flaskdb
         ports:
           - 3306:3306
     steps:
